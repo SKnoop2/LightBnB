@@ -94,10 +94,49 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
-  return pool.query(`
-  SELECT * FROM properties
-  LIMIT $1
-  `, [limit])
+  console.log("options", options);
+  // array to hold options
+  const queryParams = [];
+  // basic query, if no options specified by user
+  let queryString = `
+  SELECT properties.*, avg(property_reviews.rating) as average_rating
+  FROM properties
+  JOIN property_reviews ON properties.id = property_id
+  `;
+
+  // if user specifies city, add onto queryString
+  if (options.city) {
+    queryParams.push(`%${options.city}%`);
+    queryString += `WHERE city LIKE $${queryParams.length}`;
+  }
+  if (options.owner_id) {
+    queryParams.push(options.owner_id);
+    queryString += ` ${queryParams.length > 1 ? 'AND' :'WHERE'} owner_id = $${queryParams.length}`;
+  }
+  if (options.minimum_price_per_night) {
+    queryParams.push(options.minimum_price_per_night);
+    queryString += ` ${queryParams.length > 1 ? 'AND' : 'WHERE'} cost_per_night >= $${queryParams.length}`
+  };
+  if (options.maximum_price_per_night) {
+    queryParams.push(options.maximum_price_per_night);
+    queryString += ` ${queryParams.length > 1 ? 'AND' : 'WHERE'} cost_per_night <= $${queryParams.length}`
+  };
+  if (options.minimum_rating) {
+    queryParams.push(options.minimum_rating);
+    queryString += ` ${queryParams.length > 1 ? 'AND' : 'WHERE'} rating >= $${queryParams.length}`
+  }
+
+  // add query conditions that come after WHERE clause, including the limit
+  queryParams.push(limit);
+  queryString += `
+  GROUP BY properties.id
+  ORDER BY cost_per_night
+  LIMIT $${queryParams.length};
+  `;
+
+  console.log(queryString, queryParams);
+
+  return pool.query(queryString, queryParams)
   .then(res => res.rows);
 }
 exports.getAllProperties = getAllProperties;
@@ -117,4 +156,4 @@ const addProperty = function(property) {
 exports.addProperty = addProperty;
 
 // getAllReservations(1, 5).then(res => console.log(res.length));
-getAllProperties(null, 10)
+// getAllProperties(null, 10)
