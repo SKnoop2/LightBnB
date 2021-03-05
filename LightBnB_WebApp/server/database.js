@@ -110,7 +110,9 @@ const getAllProperties = function(options, limit = 10) {
     queryString += `WHERE city LIKE $${queryParams.length}`;
   }
   if (options.owner_id) {
+    //push new variable into the array, therefor array will always have at least 1 item
     queryParams.push(options.owner_id);
+    // if more than one item in queryParams, start string with "AND", otherwise with "WHERE"
     queryString += ` ${queryParams.length > 1 ? 'AND' :'WHERE'} owner_id = $${queryParams.length}`;
   }
   if (options.minimum_price_per_night) {
@@ -148,10 +150,15 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
 const addProperty = function(property) {
-  const propertyId = Object.keys(properties).length + 1;
-  property.id = propertyId;
-  properties[propertyId] = property;
-  return Promise.resolve(property);
+  return pool.query(`
+  INSERT INTO properties (
+    title, description, owner_id, cover_photo_url, thumbnail_photo_url, cost_per_night, parking_spaces, number_of_bathrooms, number_of_bedrooms, province, city, country, street, post_code) 
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    RETURNING *;
+    `, [property.title, property.description, property.owner_id, property.cover_photo_url, property.thumbnail_photo_url, (property.cost_per_night*100), property.parking_spaces, property.number_of_bathrooms, property.number_of_bedrooms, property.province, property.city, property.country, property.street, property.post_code])
+  .then(res => { 
+    return res.rows
+  });
 }
 exports.addProperty = addProperty;
 
